@@ -716,7 +716,7 @@ function renderClienteResumoIgualExcel(){
  const money=v=>{const n=num(v);return n==null?'—':n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})};
  const pctv=v=>{const n=num(v);return n==null?'—':(n*100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%'};
  const lastCol=XLSX.utils.decode_range(sheet['!ref']).e.c;
- const targetWeeks=[11,12,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41];
+ const targetWeeks=[11,12,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43];
  const datedCols=[];
  for(let c=7;c<=lastCol;c++){const d=asDate(rawCv(5,c)),w=Number(rawCv(6,c));if(d&&Number.isFinite(w))datedCols.push({c,year:d.getUTCFullYear(),week:w})}
  const latestYear=Math.max(...datedCols.map(x=>x.year));
@@ -1221,7 +1221,7 @@ function setFtlEntryDefaults(){
  if($('fProduct'))$('fProduct').value='OLEO DIESEL S10';
  if($('fRegion'))$('fRegion').value='SUDESTE';
  if($('fStart'))$('fStart').value='2026-01-03';
- if($('fEnd'))$('fEnd').value='2026-10-10';
+ if($('fEnd'))$('fEnd').value='2026-10-24';
  if($('fMonthStart'))$('fMonthStart').value='2026-01';
  if($('fMonthEnd'))$('fMonthEnd').value='2026-10';
  render();
@@ -1249,7 +1249,7 @@ function exactLtlFromWorkbook(){
  if($('ltlDistRegional'))$('ltlDistRegional').innerHTML=ltlTable(regional);
  if($('ltlDistNational'))$('ltlDistNational').innerHTML=ltlTable(national);
 }
-function enterFtlFinal(){if($('fProduct'))$('fProduct').value='OLEO DIESEL S10';if($('fRegion'))$('fRegion').value='SUDESTE';if($('fStart'))$('fStart').value='2026-01-03';if($('fEnd'))$('fEnd').value='2026-10-10';if($('fMonthStart'))$('fMonthStart').value='';if($('fMonthEnd'))$('fMonthEnd').value='';render()}
+function enterFtlFinal(){if($('fProduct'))$('fProduct').value='OLEO DIESEL S10';if($('fRegion'))$('fRegion').value='SUDESTE';if($('fStart'))$('fStart').value='2026-01-03';if($('fEnd'))$('fEnd').value='2026-10-24';if($('fMonthStart'))$('fMonthStart').value='';if($('fMonthEnd'))$('fMonthEnd').value='';render()}
 function enterLtlFinal(){if($('fRegion'))$('fRegion').value='Todas';if($('fMonthStart'))$('fMonthStart').value='';if($('fMonthEnd'))$('fMonthEnd').value='';render();requestAnimationFrame(exactLtlFromWorkbook)}
 function bindFinalPageEntries(){
  document.querySelectorAll('[data-page="ftl"],a[href="#ftl"],button[data-target="ftl"]').forEach(x=>{if(x.dataset.finalEntry)return;x.dataset.finalEntry='1';x.addEventListener('click',()=>setTimeout(enterFtlFinal,0))});
@@ -1275,7 +1275,7 @@ function ltlMoney(v){return Number.isFinite(v)?'R$ '+v.toLocaleString('pt-BR',{m
 function ltlRowsTable(rows,variations,nationalVariation,national){return`<div class="table-scroll"><table><thead><tr><th>Região</th><th>UF</th><th>KM Médio</th><th>Share Combustíveis</th><th>Reajuste</th></tr></thead><tbody>${rows.map(x=>{const v=national?nationalVariation:variations[x.region.toUpperCase().replace('-',' ')];return`<tr><td>${x.region}</td><td>${x.uf}</td><td>${Math.round(x.km).toLocaleString('pt-BR')} km</td><td>${ltlPct(x.share)}</td><td>${ltlPct(x.share*v)}</td></tr>`}).join('')}</tbody></table></div>`}
 function renderLtlRecalculated(){
  if(!state.wb||!$('ltlVarRegional'))return;
- const product='OLEO DIESEL S10',start=$('fStart').value||'2026-01-03',end=$('fEnd').value||'2026-10-10',variations={},regionalPrices=[];
+ const product='OLEO DIESEL S10',start=$('fStart').value||'2026-01-03',end=$('fEnd').value||'2026-10-24',variations={},regionalPrices=[];
  for(const region of regions()){const a=ltlLatestAtOrAfter(state.wr,start,product,region),b=ltlLatestAtOrBefore(state.wr,end,product,region),v=a&&b&&a.price?b.price/a.price-1:null;variations[region]=v;regionalPrices.push({region,a,b,v})}
  const na=ltlLatestAtOrAfter(state.wbz,start,product),nb=ltlLatestAtOrBefore(state.wbz,end,product),nv=na&&nb&&na.price?nb.price/na.price-1:null;
  $('ltlVarRegional').innerHTML=`<table><thead><tr><th>Região</th><th>Média inicial</th><th>Média final</th><th>Variação</th></tr></thead><tbody>${regionalPrices.map(x=>`<tr><td>${x.region}</td><td>${ltlMoney(x.a?.price)}</td><td>${ltlMoney(x.b?.price)}</td><td>${ltlPct(x.v)}</td></tr>`).join('')}</tbody></table>`;
