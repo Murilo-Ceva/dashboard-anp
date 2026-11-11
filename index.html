@@ -1272,7 +1272,14 @@ function forceLtlExactFinal(){
  const snapshots=regions().map(region=>{const initial=ltlLatestAtOrAfter(state.wr,regionalStart,interval.product,region),final=ltlLatestAtOrBefore(state.wr,regionalEnd,interval.product,region);return{region,initial,final,variation:initial&&final&&initial.price?final.price/initial.price-1:null}});
  const nationalInitial=ltlLatestAtOrAfter(state.wbz,nationalStart,interval.product),nationalFinal=ltlLatestAtOrBefore(state.wbz,nationalEnd,interval.product),nationalVariation=nationalInitial&&nationalFinal&&nationalInitial.price?nationalFinal.price/nationalInitial.price-1:null;
  const regionalVariationMap=new Map(snapshots.map(x=>[normalizeRegion(x.region),x.variation]));
- const impactRows=parsed.map(x=>{const variation=x.scope==='Regional'?regionalVariationMap.get(normalizeRegion(x.region)):nationalVariation;return{...x,adjust:Number.isFinite(x.share)&&Number.isFinite(variation)?x.share*variation:null}});
+ const impactRows=parsed.map(x=>{
+  const regionKey=normalizeRegion(x.region);
+  // Regra oficial do BI: no quadro nacional, destinos Norte preservam o reajuste
+  // calculado pela variacao regional do Norte; os demais destinos usam a media Brasil.
+  const useRegional=x.scope==='Regional'||(x.scope==='Nacional'&&regionKey==='NORTE');
+  const variation=useRegional?regionalVariationMap.get(regionKey):nationalVariation;
+  return{...x,adjust:Number.isFinite(x.share)&&Number.isFinite(variation)?x.share*variation:null};
+ });
  state.ltl=impactRows;
  const meta=(initial,final,product,scope)=>`<div class="ltl-meta"><div><b>DATA INICIAL</b>${initial&&initial!=='—'?dataBR(initial):'—'}</div><div><b>DATA FINAL</b>${final&&final!=='—'?dataBR(final):'—'}</div><div><b>PRODUTO</b>${product}</div><div><b>ABRANGÊNCIA</b>${scope}</div></div>`;
  const regionalRows=snapshots.map(x=>({region:x.region,initial:x.initial?.price,final:x.final?.price,variation:x.variation}));
@@ -1400,4 +1407,41 @@ document.querySelectorAll('.nav button[data-page]').forEach(button=>button.addEv
  if(button.dataset.page==='overview')refreshOverviewHistoryCharts();
  else refreshOtherEvolutionCharts();
 },320)));
+
+
+/* LTL dynamic date fix: the selected date represents a day inside an ANP weekly interval. */
+(function(){
+ function ltlRowsFor(rows,product,region){
+  return rows.filter(row=>row.product===product&&(!region||normalizeRegion(row.region)===normalizeRegion(region)));
+ }
+ function ltlAverageSnapshot(rows,date){
+  if(!rows.length)return null;
+  const priceRows=rows.filter(row=>Number.isFinite(row.price));
+  if(!priceRows.length)return null;
+  return{date,price:priceRows.reduce((sum,row)=>sum+row.price,0)/priceRows.length};
+ }
+ function ltlSnapshotForSelectedDate(rows,target,product,region,fallbackDirection){
+  const selected=ltlRowsFor(rows,product,region),targetDate=target;
+  // ANP data is weekly. A selected date such as 07/11 belongs to the row whose
+  // interval starts before that day and ends after it (for example 01/11-07/11
+  // or 02/11-08/11, depending on the workbook convention).
+  const containing=selected.filter(row=>iso(row.start)<=targetDate&&iso(row.end)>=targetDate);
+  if(containing.length){
+   const chosenEnd=containing.map(row=>iso(row.end)).sort().at(0);
+   return ltlAverageSnapshot(containing.filter(row=>iso(row.end)===chosenEnd),chosenEnd);
+  }
+  if(fallbackDirection==='after'){
+   const future=selected.filter(row=>iso(row.end)>=targetDate).sort((a,b)=>a.end-b.end);
+   if(!future.length)return null;
+   const chosenEnd=iso(future[0].end);
+   return ltlAverageSnapshot(future.filter(row=>iso(row.end)===chosenEnd),chosenEnd);
+  }
+  const past=selected.filter(row=>iso(row.end)<=targetDate).sort((a,b)=>a.end-b.end);
+  if(!past.length)return null;
+  const chosenEnd=iso(past.at(-1).end);
+  return ltlAverageSnapshot(past.filter(row=>iso(row.end)===chosenEnd),chosenEnd);
+ }
+ ltlLatestAtOrAfter=function(rows,target,product,region){return ltlSnapshotForSelectedDate(rows,target,product,region,'after')};
+ ltlLatestAtOrBefore=function(rows,target,product,region){return ltlSnapshotForSelectedDate(rows,target,product,region,'before')};
+})();
 </script>
